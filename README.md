@@ -1,3 +1,73 @@
+# mgu-store-ua
+
+Форк [robertnisipeanu/mgu-store](https://github.com/robertnisipeanu/mgu-store),
+в котором Store качает по HTTPS даже при неверной дате на голове (например, 2179).
+
+- **mgu-updater 0.8.14**: когда загрузка падает с `CERT_HAS_EXPIRED` /
+  `CERT_NOT_YET_VALID`, updater повторяет её через `mgu-fetch` и дальше
+  всегда качает через него.
+- **mgu-uplink 0.7.4**: добавлен `mgu-fetch`. Это загрузчик на Go, он проверяет
+  сертификаты по времени, полученному от NTP-серверов (Cloudflare, Google,
+  Apple, pool.ntp.org; нужно, чтобы минимум два ответа совпали в пределах
+  5 секунд). Часы головы он не трогает.
+
+В папке [`ua-release/mgu-repo/mgu-store`](ua-release/mgu-repo/mgu-store) лежит
+готовый релиз. Это опубликованный upstream-релиз, в котором заменены updater
+0.8.14 и uplink 0.7.4. Остальные пакеты взяты из upstream без изменений.
+
+## Установка
+
+Нужны ноутбук в одной сети с головой и root SSH-ключ `~/.ssh/mgu_root_key`
+(как в обычной установке, см. ниже и [deploy/README.md](deploy/README.md)).
+
+```sh
+git clone https://github.com/kern4466/mgu-store-ua.git
+cd mgu-store-ua
+```
+
+**macOS / Linux:**
+
+```sh
+sh deploy/install.sh first-install --from "$PWD/ua-release/mgu-repo/mgu-store" --identity ~/.ssh/mgu_root_key
+```
+
+**Windows (PowerShell), из папки `mgu-store-ua`:**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\install.ps1 first-install --from "$PWD\ua-release\mgu-repo\mgu-store" --identity $HOME\.ssh\mgu_root_key
+```
+
+С GitHub качается только сам установщик `mgu-install` (из upstream-релиза
+`installer`, сверяется по SHA256SUMS). Все пакеты ставятся из папки
+`ua-release`, и установщик проверяет у каждого sha256 и размер по
+`catalog.json`.
+
+На уже настроенной голове поставятся только более новые компоненты. Те, что
+той же версии или новее, установщик пропустит. Источники в Store остаются
+прежними.
+
+### Перед установкой и после
+
+1. Если на голове крутится цикл с `date -s`, останови его.
+2. После установки открой Store → Settings → **Check now**.
+3. В `/tmp/mgu-updater.log` при первой загрузке должна появиться строка:
+   `... CERT_HAS_EXPIRED on the unit's clock; downloads check certificates on the network's time from now on`
+
+### Откат
+
+```sh
+deploy/hu rollback mgu-updater --yes
+deploy/hu rollback mgu-uplink --yes
+```
+
+### Версии
+
+Этот форк занял номера 0.8.14 (updater) и 0.7.4 (uplink). Если upstream
+выпустит свои версии с этими же номерами, голова сочтёт их уже
+установленными и не поставит. Обновление придёт только со следующей версии.
+
+---
+
 # mgu-store
 
 An app store for BMW iDrive 7 and iDrive 8 head units (MGU). Browse,

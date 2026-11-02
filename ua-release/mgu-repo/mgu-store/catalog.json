@@ -1,0 +1,137 @@
+{
+  "schema": 2,
+  "commit": "94027053254f851174f939ac9cc3e28661f77d31",
+  "components": [
+    {
+      "id": "app-privacy",
+      "kind": "tool",
+      "title": "App privacy",
+      "description": "Keeps our apps out of the head unit's backend app reporting and restarts them after a crash",
+      "version": "1.7.1",
+      "artifact": {
+        "name": "app-privacy@1.7.1.tgz",
+        "size": 18940,
+        "sha256": "a5c32beadfa6f0f661f8bf799b3ccbbeb34ff9f434804b64356e0a90ae8d5d38",
+        "url": "app-privacy@1.7.1.tgz"
+      },
+      "requires": {
+        "mgu-deploy": "0.6.3"
+      },
+      "mguHmi": [
+        "ID7",
+        "ID8"
+      ]
+    },
+    {
+      "id": "mgu-deploy",
+      "kind": "tool",
+      "title": "Deploy tool",
+      "description": "Installs, updates, rolls back and removes our tools and apps on the head unit, with a snapshot before every change",
+      "version": "0.7.10",
+      "artifact": {
+        "name": "mgu-deploy@0.7.10.tgz",
+        "size": 111968,
+        "sha256": "73f769ea2cfcad64a12d1e4a5b943a4195ccb4a024a965237a6a82c2b9cf4a45",
+        "url": "mgu-deploy@0.7.10.tgz"
+      }
+    },
+    {
+      "id": "mgu-python",
+      "kind": "tool",
+      "title": "Python",
+      "description": "Python 3.12 for apps that build on the head unit with Python",
+      "version": "1.0.2",
+      "artifact": {
+        "name": "mgu-python@1.0.2.tgz",
+        "size": 14441404,
+        "sha256": "76959884aa5c6681115b217f2e4aec0d48e3ee40c139d0fb2d48cc270d1fde5a",
+        "url": "mgu-python@1.0.2.tgz"
+      },
+      "mguHmi": [
+        "ID7",
+        "ID8"
+      ]
+    },
+    {
+      "id": "mgu-render",
+      "kind": "tool",
+      "title": "Renderer",
+      "description": "Draws apps' screens on the GPU, over the HMI or inside the app's page",
+      "version": "0.6.9",
+      "artifact": {
+        "name": "mgu-render@0.6.9.tgz",
+        "size": 90108,
+        "sha256": "7c959d5859689ecd544d6611671e3a413d0e5361a1e8636936d7864b579f99eb",
+        "url": "mgu-render@0.6.9.tgz"
+      },
+      "requires": {
+        "mgu-deploy": "0.6.9"
+      },
+      "optional": true,
+      "uninstallable": true,
+      "mguHmi": [
+        "ID7",
+        "ID8"
+      ],
+      "mguProvides": "renderer"
+    },
+    {
+      "id": "mgu-updater",
+      "kind": "tool",
+      "title": "Updater",
+      "description": "Installs, updates and removes apps and head-unit tools from its sources",
+      "version": "0.8.14",
+      "artifact": {
+        "name": "mgu-updater@0.8.14.tgz",
+        "size": 109201,
+        "sha256": "4d6ea81e46bb4d4e8655feb5fbab2454789ac4a4812e426321f10b1acce11362",
+        "url": "mgu-updater@0.8.14.tgz"
+      },
+      "requires": {
+        "mgu-deploy": "0.6.9",
+        "mgu-python": "1.0.2"
+      }
+    },
+    {
+      "id": "mgu-uplink",
+      "kind": "tool",
+      "title": "Internet uplink",
+      "description": "Internet for selected apps through a USB network adapter, an LTE stick, a USB-tethered phone or Wi-Fi",
+      "version": "0.7.4",
+      "artifact": {
+        "name": "mgu-uplink@0.7.4.tgz",
+        "size": 6341569,
+        "sha256": "b4d75c94dfc6d71c8fd789fb5d2a17ed53e9ee0651e657f41ddb65807db69518",
+        "url": "mgu-uplink@0.7.4.tgz"
+      },
+      "requires": {
+        "mgu-updater": "0.7.2"
+      },
+      "optional": true,
+      "uninstallable": true
+    },
+    {
+      "id": "robertn_store",
+      "kind": "app",
+      "title": "Store",
+      "description": "The apps and head-unit tools of every source with their state, and the sources; installs, updates and removes them through mgu-updater",
+      "version": "0.9.15",
+      "artifact": {
+        "name": "robertn_store@0.9.15.tgz",
+        "size": 1442327,
+        "sha256": "dd4b22d716f8a0f225d27dca730dd44653a56dcc3b07b5d5dc0bce5e710b49d0",
+        "url": "robertn_store@0.9.15.tgz"
+      },
+      "build": "unit",
+      "requires": {
+        "mgu-deploy": "0.5.1",
+        "mgu-updater": "0.8.7",
+        "mgu-render": "0.3.1"
+      },
+      "mguHmi": [
+        "ID7",
+        "ID8"
+      ]
+    }
+  ]
+}

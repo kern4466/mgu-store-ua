@@ -1,5 +1,9 @@
 # Updater changelog
 
+## 0.8.14
+
+- A download whose certificate fails on the unit's clock (`CERT_HAS_EXPIRED`, `CERT_NOT_YET_VALID`: a head unit on a bench, with no GPS fix and no car, keeps a clock decades off) is made again by the uplink's `mgu-fetch` (mgu-uplink 0.7.4), which checks certificates against the time NTP servers give; once that has worked, later downloads go through it first. The unit's clock is not touched. New keys `clock_fetch`, `clock_ca`, `clock_ntp` (README.md, "The unit's clock"). With an older uplink the download fails as before.
+
 ## 0.8.13
 
 - A version 1 App Manager index keeps only the newest package of each id, as version 2 does, and remembers what each listed package is (`state/index/<source id>/index.json`), so a check downloads only packages it has not read; the packages kept, every source's together, come to at most 128 MiB, and one not kept is downloaded again for its install or icon.

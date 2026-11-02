@@ -10,3 +10,6 @@ native/*/build/
 release/out/
 release/published/
 
+
+# mgu-store-ua: the ready release folder is kept in git
+!ua-release/**/*.tgz
