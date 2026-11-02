@@ -3,17 +3,19 @@
 Форк [robertnisipeanu/mgu-store](https://github.com/robertnisipeanu/mgu-store),
 в котором Store качает по HTTPS даже при неверной дате на голове (например, 2179).
 
-- **mgu-updater 0.8.14**: когда загрузка падает с `CERT_HAS_EXPIRED` /
+- **mgu-updater 0.8.15**: когда загрузка падает с `CERT_HAS_EXPIRED` /
   `CERT_NOT_YET_VALID`, updater повторяет её через `mgu-fetch` и дальше
   всегда качает через него.
 - **mgu-uplink 0.7.4**: добавлен `mgu-fetch`. Это загрузчик на Go, он проверяет
   сертификаты по времени, полученному от NTP-серверов (Cloudflare, Google,
   Apple, pool.ntp.org; нужно, чтобы минимум два ответа совпали в пределах
   5 секунд). Часы головы он не трогает.
+- Python-сборки приложений (`.tgz`/`.zip`) больше не падают с
+  `struct.error` при дате после 2106 года (`py/sitecustomize.py` в updater 0.8.15).
 
 В папке [`ua-release/mgu-repo/mgu-store`](ua-release/mgu-repo/mgu-store) лежит
 готовый релиз. Это опубликованный upstream-релиз, в котором заменены updater
-0.8.14 и uplink 0.7.4. Остальные пакеты взяты из upstream без изменений.
+0.8.15 и uplink 0.7.4. Остальные пакеты взяты из upstream без изменений.
 
 ## Установка
 
@@ -62,7 +64,7 @@ deploy/hu rollback mgu-uplink --yes
 
 ### Версии
 
-Этот форк занял номера 0.8.14 (updater) и 0.7.4 (uplink). Если upstream
+Этот форк занял номера 0.8.14–0.8.15 (updater) и 0.7.4 (uplink). Если upstream
 выпустит свои версии с этими же номерами, голова сочтёт их уже
 установленными и не поставит. Обновление придёт только со следующей версии.
 

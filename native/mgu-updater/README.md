@@ -220,7 +220,10 @@ commit). Without one: `releases` when the repo has a release, else
 
 **Building on the unit.** `build.node` runs under this Node, and
 `build.python` under `python` (`/var/opt/mgu-python/current/bin/python3`,
-with `SSL_CERT_FILE` its CA bundle), as the build uid ("Its own uids": no
+with `SSL_CERT_FILE` its CA bundle and `PYTHONPATH` the updater's `py/`,
+whose `sitecustomize.py` writes a time past 2106 into a gzip header as
+none and into a zip entry as the last DOS date, 2107, instead of failing
+on a unit whose clock is that far off), as the build uid ("Its own uids": no
 account, in none of the uplink's lists: no network),
 in a copy of the repo in `state/build-<random>/repo` that only it can
 write, with `MGU_SDK_DONOR` (the donor bundle `mgu-deploy.sh sdk-donor

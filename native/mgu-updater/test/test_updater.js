@@ -540,6 +540,7 @@ function updaterKit(dir, version, variant) {
     c.version = version;
     c.files = c.files.filter((f) => fs.existsSync(path.join(ROOT, f.from)));
     c.files.forEach((f) => {
+        mkdirp(path.dirname(path.join(files, f.path)));
         fs.copyFileSync(path.join(ROOT, f.from), path.join(files, f.path));
         f.sha256 = sha256(fs.readFileSync(path.join(files, f.path)));
         delete f.from;
@@ -1432,7 +1433,10 @@ function testDaemon(certs, pubDir) {
     mkdirp(oap);
     // version 0.1.0 installed the deploy tool's way
     const c = JSON.parse(fs.readFileSync(path.join(ROOT, 'component.json'), 'utf8'));
-    c.files.filter((f) => fs.existsSync(path.join(ROOT, f.from))).forEach((f) => fs.copyFileSync(path.join(ROOT, f.from), path.join(v1, f.path)));
+    c.files.filter((f) => fs.existsSync(path.join(ROOT, f.from))).forEach((f) => {
+        mkdirp(path.dirname(path.join(v1, f.path)));
+        fs.copyFileSync(path.join(ROOT, f.from), path.join(v1, f.path));
+    });
     fs.chmodSync(path.join(v1, 'mgu-updater'), 0o755);
     c.version = '0.1.0';
     fs.writeFileSync(path.join(v1, 'component.json'), JSON.stringify(c));

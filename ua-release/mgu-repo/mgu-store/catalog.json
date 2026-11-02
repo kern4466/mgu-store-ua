@@ -80,12 +80,12 @@
       "kind": "tool",
       "title": "Updater",
       "description": "Installs, updates and removes apps and head-unit tools from its sources",
-      "version": "0.8.14",
+      "version": "0.8.15",
       "artifact": {
-        "name": "mgu-updater@0.8.14.tgz",
-        "size": 109201,
-        "sha256": "4d6ea81e46bb4d4e8655feb5fbab2454789ac4a4812e426321f10b1acce11362",
-        "url": "mgu-updater@0.8.14.tgz"
+        "name": "mgu-updater@0.8.15.tgz",
+        "size": 109974,
+        "sha256": "f893c84124509a01af7fa245a5b251c0ce74d781baa44574fe84000f499f6097",
+        "url": "mgu-updater@0.8.15.tgz"
       },
       "requires": {
         "mgu-deploy": "0.6.9",
