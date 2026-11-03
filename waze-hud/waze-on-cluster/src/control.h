@@ -3,8 +3,9 @@
 /* The control socket: newline-delimited JSON between its owner (the app, or
  * `waze-on-cluster run`) and the tool (README.md "Using it").
  *
- *   owner -> tool  {"cmd":"start","target":"sail"|"map"|"panel"|"hud"[,"rect":"X,Y,W,H"]}
- *                  where the map goes, and with rect where on the HUD; kept (place_setting.h)
+ *   owner -> tool  {"cmd":"start","target":"sail"|"map"|"panel"|"hud"[,"rect":"X,Y,W,H"][,"hud":0|1]}
+ *                  where the map goes, with rect where on the HUD, with hud whether a map
+ *                  on the cluster is on the HUD too; kept (place_setting.h)
  *                  {"cmd":"guide","hide":0|1}  BMW's turn box hidden or not (guide_setting.h)
  *   tool -> owner  {"ev":"status",...,"hide_bmw_guidance":0|1,"guide_disabled":0|1}
  *                  {"ev":"log","line":...}

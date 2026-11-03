@@ -13,8 +13,9 @@
  * Hide BMW turn box checkbox, shipped hidden, shown and ticked as the render
  * reports, each press one guide command to the render, greyed, unticked
  * and labelled unavailable while the cluster renderer holds the box shown;
- * Show on HUD / Show on cluster, shipped hidden, labelled as the render
- * reports its target, each press one start command to the render; the HUD
+ * Map on cluster and Map on HUD, shipped hidden, ticked as the render
+ * reports where the map is, each press one start command to the render and
+ * the last one ticked staying ticked; the HUD
  * buttons, shipped hidden, shown while the map is on the HUD, each press a
  * start with the new rect; a page
  * opened while the map is up shows it; Disable map shown only while patched
@@ -180,7 +181,7 @@ async function main() {
     assert.deepStrictEqual(buttons.map(([id]) => id).sort(), xmlButtons, 'application.xml and uiDescription agree');
     assert.deepStrictEqual(buttons.map(([, d]) => d.name).sort(), ['wocAaCard', 'wocAaDisable', 'wocAaEnable', 'wocAaZoomIn', 'wocAaZoomOut',
         'wocCapture', 'wocDisable', 'wocEnable', 'wocHudDown', 'wocHudLarger', 'wocHudSmaller', 'wocHudUp', 'wocLogs',
-        'wocRestart', 'wocTarget']);
+        'wocRestart']);
     assert(!buttons.some(([, d]) => /^(Show|Stop)$/.test(d.rows[0].Text.value)), 'no Show or Stop button');
     /* The restart button ships hidden; it shows only while a patch is deferred. */
     assert.strictEqual(components['34'].properties.Visible.value, 0, 'wocRestart ships hidden');
@@ -189,8 +190,11 @@ async function main() {
         components['35'].rows[0].Text.value], ['checkBox', 'wocGuide', 0, 'Hide BMW turn box']);
     assert(/<component id="35" type="checkBox" widget="LT_CheckBox_1Row">\s*<property id="2" value="0"\/>/.test(XML),
         'application.xml: checkbox 35, hidden');
-    /* The target button ships hidden; it shows once the render reports its target. */
-    assert.deepStrictEqual([components['36'].name, components['36'].properties.Visible.value], ['wocTarget', 0]);
+    /* The place checkboxes ship hidden; they show once the render reports where the map is. */
+    assert.deepStrictEqual(['36', '40'].map((id) => [components[id].type, components[id].name, components[id].properties.Visible.value]),
+        [['checkBox', 'wocOnCluster', 0], ['checkBox', 'wocOnHud', 0]]);
+    assert(/<component id="36" type="checkBox" widget="LT_CheckBox_1Row">\s*<property id="2" value="0"\/>\s*<property id="3" value="3"\/>\s*<\/component>\s*<component id="40" type="checkBox" widget="LT_CheckBox_1Row">\s*<property id="2" value="0"\/>/.test(XML),
+        'application.xml: checkboxes 36 and 40, hidden, one after the other');
     /* The HUD buttons ship hidden; they show while the map is on the HUD. */
     assert.deepStrictEqual(['28', '29', '30', '31'].map((id) => [components[id].name, components[id].properties.Visible.value]),
         [['wocHudSmaller', 0], ['wocHudLarger', 0], ['wocHudUp', 0], ['wocHudDown', 0]]);
@@ -232,8 +236,8 @@ async function main() {
         assert(!logs.some((l) => /^error/.test(l)), logs.filter((l) => /^error/.test(l)).join('\n'));
         const bound = logs.filter((l) => l.startsWith('info: BIND OK: ')).map((l) => l.split(' ')[3]).sort();
         assert.deepStrictEqual(bound, ['wocAaCard', 'wocAaDisable', 'wocAaEnable', 'wocAaZoomIn', 'wocAaZoomOut', 'wocCapture', 'wocDisable', 'wocEnable',
-            'wocGuide', 'wocHudDown', 'wocHudLarger', 'wocHudSmaller', 'wocHudUp', 'wocLogs', 'wocLogsSave', 'wocRestart',
-            'wocTarget'], 'bound buttons and checkbox');
+            'wocGuide', 'wocHudDown', 'wocHudLarger', 'wocHudSmaller', 'wocHudUp', 'wocLogs', 'wocLogsSave', 'wocOnCluster',
+            'wocOnHud', 'wocRestart'], 'bound buttons and checkboxes');
         assert.strictEqual(byName.wocRestart.visible, false, 'restart button hidden while the map shows');
         console.log('ok   a page opened while the map is up shows it');
         await until('the setup line', () => byName.wocSetup.text === 'Set Instrument cluster > Central display area to Map view');
@@ -300,29 +304,40 @@ async function main() {
             guide.text === 'Hide BMW turn box');
         console.log('ok   held off by the cluster renderer: greyed, unticked, labelled unavailable, presses send nothing');
 
-        const target = byName.wocTarget;
+        const onCluster = byName.wocOnCluster;
+        const onHud = byName.wocOnHud;
         render.received.length = 0;
-        await until('Show on HUD offered', () => target.visible === true && target.enabled === true && target.text === 'Show on HUD');
-        target.emit('action');
-        await until('on the HUD', () => render.target === 'hud' && target.text === 'Show on cluster');
-        assert.deepStrictEqual(render.received, [{ cmd: 'start', target: 'hud' }], 'one start command');
+        await until('on the cluster only', () => onCluster.visible === true && onHud.visible === true &&
+            onCluster.selected === true && onHud.selected === false);
+        onHud.emit('action');
+        await until('on both', () => render.alsoHud === 1 && onCluster.selected === true && onHud.selected === true);
+        assert.deepStrictEqual(render.received, [{ cmd: 'start', target: 'map', hud: 1 }], 'one start command');
         const hud = ['wocHudSmaller', 'wocHudLarger', 'wocHudUp', 'wocHudDown'].map((n) => byName[n]);
         await until('the HUD buttons shown', () => hud.every((b) => b.visible === true && b.enabled === true));
         byName.wocHudSmaller.emit('action');
         await until('smaller', () => render.hudRect === '230,140,340,150');
         byName.wocHudUp.emit('action');
         await until('up', () => render.hudRect === '230,132,340,150');
-        assert.deepStrictEqual(render.received.slice(1), [{ cmd: 'start', target: 'hud', rect: '230,140,340,150' },
-            { cmd: 'start', target: 'hud', rect: '230,132,340,150' }]);
-        render.received.length = 1;
-        console.log('ok   HUD: smaller and up, each press a new rect through the render');
-        await sleep(450);
-        target.emit('action');
-        await until('back on the cluster', () => render.target === 'map' && target.text === 'Show on HUD' &&
-            hud.every((b) => b.visible === false));
-        assert.deepStrictEqual(render.received[1], { cmd: 'start', target: 'map' });
+        assert.deepStrictEqual(render.received.slice(1), [{ cmd: 'start', target: 'map', rect: '230,140,340,150' },
+            { cmd: 'start', target: 'map', rect: '230,132,340,150' }]);
         render.received.length = 0;
-        console.log('ok   Show on HUD / Show on cluster: each press moves the map through the render, labelled as the render says');
+        console.log('ok   HUD: smaller and up, each press a new rect through the render');
+        onCluster.emit('action');
+        await until('on the HUD only', () => render.target === 'hud' && onCluster.selected === false && onHud.selected === true);
+        await sleep(450);
+        onHud.emit('action');
+        await sleep(100);
+        await until('the HUD alone stays ticked', () => onHud.selected === true);
+        await sleep(450);
+        onCluster.emit('action');
+        await sleep(450);
+        onHud.emit('action');
+        await until('back on the cluster only', () => render.target === 'map' && render.alsoHud === 0 &&
+            onCluster.selected === true && onHud.selected === false && hud.every((b) => b.visible === false));
+        assert.deepStrictEqual(render.received, [{ cmd: 'start', target: 'hud' }, { cmd: 'start', target: 'map', hud: 1 },
+            { cmd: 'start', target: 'map', hud: 0 }], 'the HUD alone not turned off');
+        render.received.length = 0;
+        console.log('ok   Map on cluster / Map on HUD: each tick or untick through the render, ticked as the render says, never both off');
 
         byName.ST_OnlineApps_WazeCluster.emit('visible', { visible: false });
         await until('sockets closed', () => render._clients.size === 0 && patch._clients.size === 0);

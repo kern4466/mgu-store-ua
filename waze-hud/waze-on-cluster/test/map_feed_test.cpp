@@ -12,6 +12,9 @@
  * - a control start moves it to the whole panel, centred at 416,120, and an
  *   unknown target is refused; to the HUD, at the HUD's rect, which the
  *   status reports and a new rect moves;
+ * - also on the HUD: a second layer at the HUD's rect, every frame drawn
+ *   on both, hidden and shown with the first, moved by a new rect, gone
+ *   when switched off and while the map itself is on the HUD;
  * - frames stopping: idle after stall_ms, the slot released;
  * - the renderer restarting: starting while it is gone, an error once it
  *   stays gone 15 s, then the map again with the next frames;
@@ -181,6 +184,24 @@ struct Rig {
             return l;
         return nullptr;
     }
+    /* The layers on a target (0 map, 1 panel, 2 hud). */
+    std::vector<const crs::Layer *> on(int target)
+    {
+        std::vector<const crs::Layer *> out;
+        for (const crs::Layer *l : svc->compositor().layers())
+            if ((int)l->target() == target)
+                out.push_back(l);
+        return out;
+    }
+    bool drawn(const char *target, const std::vector<uint8_t> &f)
+    {
+        crs::FakeGraph *g = gpu.graph(target);
+        if (g)
+            for (const auto &kv : g->shown.buffers)
+                if (kv.second.f == crs::TexFormat::R8 && kv.second.px == f)
+                    return true;
+        return false;
+    }
 };
 
 static std::vector<uint8_t> atlas(int seed)
@@ -194,6 +215,50 @@ static std::vector<uint8_t> atlas(int seed)
 /* The app's switch for BMW's turn box: on by default, the hold following
  * the map and the box taken over; off, the hold released and the box
  * shown, the map still showing; on again, held. */
+static void also_hud()
+{
+    const std::vector<uint8_t> f = atlas(9), f2 = atlas(10);
+    Rig a;
+    MapRect top;
+    parse_map_rect("214,140,372,164", &top);
+    a.feed->set_hud_rect(top);
+    a.pump(1500, &f);
+    ok("also on the HUD: off by default, one layer", a.on(0).size() == 1 && a.on(2).empty() &&
+                                                       !a.st().also_hud && a.st().hud_rect.empty());
+    a.feed->set_also_hud(true);
+    a.pump(4000, &f2);
+    ok("also on the HUD: a second layer at the HUD's rect, the status saying where",
+       a.on(0).size() == 1 && a.on(2).size() == 1 && a.on(2)[0]->params.rect.x == 214 &&
+           a.on(2)[0]->params.rect.w == 372 && !a.on(2)[0]->params.guide_hold && a.st().also_hud &&
+           a.st().target == "map" && a.st().rect == "0,0,1088,480" && a.st().hud_rect == "214,140,372,164" &&
+           a.st().state == "showing");
+    ok("also on the HUD: every frame drawn on both", a.drawn("map", f2) && a.drawn("hud", f2));
+    a.feed->set_stream(false, false, Picture::Shown);
+    a.pump(100);
+    ok("also on the HUD: the stream not live hides both", !a.on(0)[0]->params.visible && !a.on(2)[0]->params.visible);
+    a.feed->set_stream(true, false, Picture::Shown);
+    a.pump(100, &f);
+    ok("also on the HUD: live again shows both", a.on(0)[0]->params.visible && a.on(2)[0]->params.visible);
+    MapRect small;
+    parse_map_rect("230,140,340,150", &small);
+    a.feed->set_hud_rect(small);
+    a.pump(500, &f);
+    ok("also on the HUD: a new rect moves the HUD's copy, the map stays",
+       a.on(2).size() == 1 && a.on(2)[0]->params.rect.x == 230 && a.on(0).size() == 1 &&
+           a.st().hud_rect == "230,140,340,150");
+    a.feed->set_target("hud");
+    a.pump(500, &f);
+    ok("also on the HUD, the map moved to the HUD: one layer there, none on the cluster",
+       a.on(0).empty() && a.on(2).size() == 1 && a.st().hud_rect == "230,140,340,150");
+    a.feed->set_target("map");
+    a.pump(500, &f);
+    ok("back on the cluster: the HUD's copy again", a.on(0).size() == 1 && a.on(2).size() == 1);
+    a.feed->set_also_hud(false);
+    a.pump(500, &f);
+    ok("also on the HUD off: the HUD's copy gone", a.on(0).size() == 1 && a.on(2).empty() && a.st().hud_rect.empty() &&
+                                                       !a.st().also_hud);
+}
+
 static void guide_hold()
 {
     const std::vector<uint8_t> f = atlas(7);
@@ -542,6 +607,7 @@ int main()
     ok("status log: a target alone", sl.due(a, t + 11400));
 
     guide_hold();
+    also_hud();
     std::printf(failures ? "%d FAILED\n" : "all ok\n", failures);
     return failures ? 1 : 0;
 }

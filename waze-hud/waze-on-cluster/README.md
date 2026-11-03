@@ -35,7 +35,7 @@ a video pipeline:
 Install the app `robertn_waze_cluster` from the catalog of
 [idrive-apps](https://github.com/robertnisipeanu/idrive-apps)
 through the [mgu Store](https://github.com/robertnisipeanu/mgu-store). The
-app requires this tool (0.8.1); this tool requires `cluster-render` 0.3.7 and
+app requires this tool (0.8.2); this tool requires `cluster-render` 0.3.7 and
 `mgu-deploy` 0.7.11, the deploy tool version that runs activate and deactivate
 hooks and puts the tool's `recmgr` and `crashNames` names, `aapd` among
 them, on the lists. Requirements resolve across catalog sources.
@@ -280,14 +280,18 @@ the render decodes through a lost packet:
   since 12:40:50`) and in `probe.txt`. A status line whose only change is
   the stream's reason is logged at most once every 10 s.
 
-**On the HUD.** The app's Show on HUD moves the map to the `hud` target
+**On the HUD.** The app's Map on HUD puts the map on the `hud` target
 (800x480), at `hud_rect` in the conf (`214,140,372,164`): the HUD's fitted
 centre (`173,140,453,200`) has BMW's speed and sign row over its bottom on
 the car, so by default the map keeps that centre's top and ends above the
-row. The app's HUD buttons send a new rect with the start
-(`{"cmd":"start","target":"hud","rect":"X,Y,W,H"}`). The target and the
-HUD's rect are kept in `place_file` and replace the conf's at each start;
-the status reports the map's `rect` in its target.
+row. With Map on cluster ticked too (`also_hud`, `{"cmd":"start",
+"target":"map","hud":1}`), the map is on both: a second video layer on the
+HUD gets a copy of every frame and shows and hides with the first, and both
+draw within the renderer's one upload budget. The app's HUD buttons send a
+new rect with the start (`"rect":"X,Y,W,H"`). The target, `also_hud` and
+the HUD's rect are kept in `place_file` and replace the conf's at each
+start; the status reports the map's `rect` in its target, `also_hud` and
+its `hud_rect` (empty while it is not on the HUD).
 
 From a shell, `waze-on-cluster -c <conf> run map|panel|hud` (`sail` is an
 alias of `map`) sets the target, kept like the app's, and prints the

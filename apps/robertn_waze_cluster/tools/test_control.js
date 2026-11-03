@@ -22,9 +22,10 @@
  * turn box switch: hidden by default, each toggle one guide command to the
  * render and the state as the render reports it, nothing known or sent
  * while closed or with a render that has no switch, nothing sent while the
- * cluster renderer holds the box shown. The target: not known until the
- * render reports it, each toggle one start command to the other of map and
- * hud. The HUD rect: each button's step kept inside the HUD at the map's
+ * cluster renderer holds the box shown. The places: not known until the
+ * render reports them (none from a tool without also_hud), each toggle one
+ * start command: the map on the cluster, on the HUD or on both, never
+ * nowhere. The HUD rect: each button's step kept inside the HUD at the map's
  * shape, none past its edges, each press one start with the new rect.
  * The Logs page's client (src/logs_control.js): the socket absent before the
  * logs service runs, Save logs sending one save and the list, the address
@@ -170,25 +171,50 @@ test('the turn box switch: hidden by default, toggled through the render, shown 
     assert.strictEqual(render.received.length, 2, 'nothing sent while closed');
 });
 
-test('the target: not known until the render says, each toggle one start command', async (render, patch) => {
+test('the places: not known until the render says, each toggle one start, never nowhere', async (render, patch) => {
     const c = control();
     c.open();
     await until('render status', () => c.renderStatus);
-    assert.strictEqual(c.target(), null, 'no target reported yet');
-    c.toggleTarget();
+    assert.strictEqual(c.places(), null, 'no target reported yet');
+    c.togglePlace('hud');
     await sleep(50);
     assert.deepStrictEqual(render.received, [], 'nothing sent while not known');
     render.stream(true);
     await until('on the cluster', () => c.target() === 'map');
-    c.toggleTarget();
-    await until('on the HUD', () => c.target() === 'hud');
-    assert.deepStrictEqual(render.received, [{ cmd: 'start', target: 'hud' }]);
-    c.toggleTarget();
-    await until('back on the cluster', () => c.target() === 'map');
-    assert.deepStrictEqual(render.received[1], { cmd: 'start', target: 'map' });
+    assert.deepStrictEqual(c.places(), { cluster: true, hud: false });
+    c.togglePlace('cluster');
+    await sleep(50);
+    assert.deepStrictEqual(render.received, [], 'the cluster alone: not turned off');
+    c.togglePlace('hud');
+    await until('on both', () => c.places().hud === true);
+    assert.deepStrictEqual(c.places(), { cluster: true, hud: true });
+    assert.deepStrictEqual(c.hudRect(), { x: 214, y: 140, w: 372, h: 164 }, 'the HUD\'s rect while on both');
+    c.togglePlace('cluster');
+    await until('on the HUD only', () => c.target() === 'hud');
+    assert.deepStrictEqual(c.places(), { cluster: false, hud: true });
+    c.togglePlace('hud');
+    await sleep(50);
+    c.togglePlace('cluster');
+    await until('on both again', () => c.target() === 'map');
+    c.togglePlace('hud');
+    await until('on the cluster only', () => c.places().hud === false);
+    assert.strictEqual(c.hudRect(), null, 'not on the HUD: no HUD rect');
+    assert.deepStrictEqual(render.received, [{ cmd: 'start', target: 'map', hud: 1 }, { cmd: 'start', target: 'hud' },
+        { cmd: 'start', target: 'map', hud: 1 }, { cmd: 'start', target: 'map', hud: 0 }], 'the HUD alone: not turned off');
     render.stream(false);
     c.close();
-    assert.strictEqual(c.target(), null, 'closed: not known');
+    assert.strictEqual(c.places(), null, 'closed: not known');
+});
+
+test('a tool that cannot draw on both: no places', async (render, patch) => {
+    render.alsoHud = undefined;
+    const c = control();
+    c.open();
+    render.stream(true);
+    await until('on the cluster', () => c.target() === 'map');
+    assert.strictEqual(c.places(), null);
+    render.stream(false);
+    c.close();
 });
 
 test('the HUD rect: each button a new rect, kept inside the HUD at its shape', async (render, patch) => {
@@ -209,12 +235,13 @@ test('the HUD rect: each button a new rect, kept inside the HUD at its shape', a
     await until('on the cluster', () => c.target() === 'map');
     assert.strictEqual(c.hudRect(), null, 'not on the HUD: no HUD rect');
     assert.strictEqual(c.canStepHud('up'), false);
-    c.toggleTarget();
+    c.togglePlace('cluster');
+    c.togglePlace('hud');
     await until('on the HUD', () => c.hudRect() !== null);
     assert.deepStrictEqual(c.hudRect(), r, 'the render\'s rect');
     c.stepHud('down');
     await until('down', () => c.hudRect().y === 148);
-    assert.deepStrictEqual(render.received[1], { cmd: 'start', target: 'hud', rect: '214,148,372,164' });
+    assert.deepStrictEqual(render.received[1], { cmd: 'start', target: 'map', rect: '214,148,372,164' }, 'the target kept');
     render.stream(false);
     c.close();
 });

@@ -58,7 +58,11 @@
                 <property id="2" value="0"/>
                 <property id="3" value="3"/>
             </component>
-            <component id="36" type="button" widget="LT_Button_1Row">
+            <component id="36" type="checkBox" widget="LT_CheckBox_1Row">
+                <property id="2" value="0"/>
+                <property id="3" value="3"/>
+            </component>
+            <component id="40" type="checkBox" widget="LT_CheckBox_1Row">
                 <property id="2" value="0"/>
                 <property id="3" value="3"/>
             </component>

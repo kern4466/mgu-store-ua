@@ -42,8 +42,18 @@ MapFeed::MapFeed(const FeedConfig &cfg) : cfg_(cfg), client_("waze-on-cluster", 
         log_info("render: connected to the cluster renderer (%s; %s)", client_.backend.c_str(), client_.targets.c_str());
         if (!layer_)
             make_layer();
+        if (!mirror_)
+            make_mirror();
     };
     client_.on_layer = [this](uint32_t ref, const std::string &state, const std::string &reason) {
+        if (ref && ref == mirror_) {
+            if (state != mirror_state_ || reason != mirror_reason_)
+                log_info("render: map on the HUD too %s%s%s", state.c_str(), reason.empty() ? "" : " - ",
+                         reason.c_str());
+            mirror_state_ = state;
+            mirror_reason_ = reason;
+            return;
+        }
         if (ref != layer_)
             return;
         if (state != layer_state_ || reason != layer_reason_)
@@ -75,41 +85,67 @@ MapFeed::MapFeed(const FeedConfig &cfg) : cfg_(cfg), client_("waze-on-cluster", 
     };
 }
 
-void MapFeed::make_layer()
+uint32_t MapFeed::make_video(const std::string &target, const MapRect &rect, bool guide_hold, cr::LayerOptions *lo)
 {
     uint32_t tw = 0, th = 0;
-    if (!target_size(client_.targets, cfg_.target, &tw, &th)) {
-        refused_ = "the cluster renderer has no target " + cfg_.target;
-        log_error("render: %s", refused_.c_str());
-        return;
-    }
+    if (!target_size(client_.targets, target, &tw, &th))
+        return 0;
     /* The map area: all of the map slot's scene, the centred 1088x480 of a
      * whole-panel one, a fitted centre on the HUD; or the target's rect. */
     crk::QuadRect q = crk::map_quad(tw, th, cfg_.video.w, cfg_.video.h);
-    const bool hud = cfg_.target == "hud";
-    const MapRect &rect = hud ? cfg_.hud_rect : cfg_.rect;
     if (rect.set() && rect.fits(tw, th))
         q = crk::QuadRect{rect.x, rect.y, rect.w, rect.h};
     else if (rect.set())
-        log_warn("render: %s %u,%u,%u,%u is outside %s (%ux%u); the map area instead", hud ? "hud_rect" : "map_rect",
-                 rect.x, rect.y, rect.w, rect.h, cfg_.target.c_str(), tw, th);
-    lo_ = cr::LayerOptions();
-    lo_.target = cfg_.target;
-    lo_.klass = "content";
-    lo_.contend = true;   /* the map takes the slot back from the stock map */
-    lo_.guide_hold = cfg_.guide_hold;
-    lo_.x = (int)q.x;
-    lo_.y = (int)q.y;
-    lo_.w = q.w;
-    lo_.h = q.h;
-    lo_.visible = live_ && !frozen_ && picture_ == Picture::Shown;
+        log_warn("render: %s %u,%u,%u,%u is outside %s (%ux%u); the map area instead",
+                 target == "hud" ? "hud_rect" : "map_rect", rect.x, rect.y, rect.w, rect.h, target.c_str(), tw, th);
+    *lo = cr::LayerOptions();
+    lo->target = target;
+    lo->klass = "content";
+    lo->contend = true;   /* the map takes the slot back from the stock map */
+    lo->guide_hold = guide_hold;
+    lo->x = (int)q.x;
+    lo->y = (int)q.y;
+    lo->w = q.w;
+    lo->h = q.h;
+    lo->visible = live_ && !frozen_ && picture_ == Picture::Shown;
+    const uint32_t ref = client_.video(*lo, cfg_.video);
+    log_info("render: map layer on %s (%ux%u), quad %ux%u at %u,%u", target.c_str(), tw, th, q.w, q.h, q.x, q.y);
+    return ref;
+}
+
+void MapFeed::make_layer()
+{
     refused_.clear();
     layer_state_ = "stalled";
     layer_reason_.clear();
     target_state_.clear();
     holder_.clear();
-    layer_ = client_.video(lo_, cfg_.video);
-    log_info("render: map layer on %s (%ux%u), quad %ux%u at %u,%u", cfg_.target.c_str(), tw, th, q.w, q.h, q.x, q.y);
+    const bool hud = cfg_.target == "hud";
+    layer_ = make_video(cfg_.target, hud ? cfg_.hud_rect : cfg_.rect, cfg_.guide_hold, &lo_);
+    if (!layer_) {
+        refused_ = "the cluster renderer has no target " + cfg_.target;
+        log_error("render: %s", refused_.c_str());
+    }
+}
+
+void MapFeed::make_mirror()
+{
+    if (!cfg_.also_hud || cfg_.target == "hud")
+        return;
+    mirror_state_ = "stalled";
+    mirror_reason_.clear();
+    mirror_ = make_video("hud", cfg_.hud_rect, false, &mirror_lo_);
+    if (!mirror_)
+        log_warn("render: the cluster renderer has no target hud; the map is on %s only", cfg_.target.c_str());
+}
+
+void MapFeed::remake_mirror()
+{
+    if (mirror_)
+        client_.drop(mirror_);
+    mirror_ = 0;
+    if (client_.connected())
+        make_mirror();
 }
 
 bool MapFeed::set_target(const std::string &name)
@@ -126,6 +162,7 @@ bool MapFeed::set_target(const std::string &name)
     cfg_.target = t;
     if (client_.connected())
         make_layer();
+    remake_mirror();
     return true;
 }
 
@@ -135,12 +172,21 @@ void MapFeed::set_hud_rect(const MapRect &rect)
     if (was.x == rect.x && was.y == rect.y && was.w == rect.w && was.h == rect.h)
         return;
     cfg_.hud_rect = rect;
-    if (cfg_.target != "hud" || !layer_)
+    if (cfg_.target == "hud" && layer_) {
+        client_.drop(layer_);
+        layer_ = 0;
+        if (client_.connected())
+            make_layer();
+    }
+    remake_mirror();
+}
+
+void MapFeed::set_also_hud(bool on)
+{
+    if (on == cfg_.also_hud)
         return;
-    client_.drop(layer_);
-    layer_ = 0;
-    if (client_.connected())
-        make_layer();
+    cfg_.also_hud = on;
+    remake_mirror();
 }
 
 void MapFeed::set_guide_hold(bool hold)
@@ -184,6 +230,8 @@ void MapFeed::count_second(int64_t now_ms)
 
 void MapFeed::offer(std::vector<uint8_t> *atlas, uint64_t id, int64_t now_ms)
 {
+    if (mirror_)
+        client_.frame(mirror_, atlas->data(), atlas->size(), id);   /* a copy, before the first takes it */
     if (layer_ && client_.frame(layer_, atlas, id))
         frames_++;
     count_second(now_ms);
@@ -208,6 +256,10 @@ void MapFeed::set_stream(bool live, bool frozen, Picture picture)
     if (layer_ && lo_.visible != visible) {
         lo_.visible = visible;
         client_.set(layer_, lo_);
+    }
+    if (mirror_ && mirror_lo_.visible != visible) {
+        mirror_lo_.visible = visible;
+        client_.set(mirror_, mirror_lo_);
     }
 }
 
@@ -242,9 +294,17 @@ FeedStatus MapFeed::status(const std::string &decode, const std::string &stream)
 {
     FeedStatus s;
     s.target = cfg_.target;
+    const auto fmt = [](const cr::LayerOptions &lo) {
+        return std::to_string(lo.x) + "," + std::to_string(lo.y) + "," + std::to_string(lo.w) + "," +
+               std::to_string(lo.h);
+    };
     if (layer_)
-        s.rect = std::to_string(lo_.x) + "," + std::to_string(lo_.y) + "," + std::to_string(lo_.w) + "," +
-                 std::to_string(lo_.h);
+        s.rect = fmt(lo_);
+    s.also_hud = cfg_.also_hud;
+    if (layer_ && cfg_.target == "hud")
+        s.hud_rect = s.rect;
+    else if (mirror_)
+        s.hud_rect = fmt(mirror_lo_);
     s.upload_cap_kb = cap_kb_;
     s.upload_reason = budget_reason_;
     s.guide_hold = cfg_.guide_hold;

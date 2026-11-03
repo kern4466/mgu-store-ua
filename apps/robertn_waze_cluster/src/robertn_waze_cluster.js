@@ -12,10 +12,11 @@
  * Hide or Show; Hide BMW turn box, a checkbox showing the render's setting,
  * shown once the render reports it, whose press asks the render to flip it,
  * greyed and unticked, its label saying unavailable, while the cluster
- * renderer keeps the box shown; Show on HUD / Show on cluster, shown once
- * the render reports its target, which moves the map between the cluster's
- * map area and the HUD, kept by the render; HUD: smaller, larger, up and
- * down while the map is on the HUD, each a new rect for it; the diagnostic capture button and its
+ * renderer keeps the box shown; Map on cluster and Map on HUD, two
+ * checkboxes shown once the render reports where the map is, each turning
+ * the map there on or off (not both off), kept by the render; HUD: smaller,
+ * larger, up and down while the map is on the HUD, each a new rect for it;
+ * the diagnostic capture button and its
  * status; Logs, which opens the Logs page; and a scrolling list of both
  * tools' log lines, newest first, one per LT_Label_1Row, redrawn at most
  * every LIST_RENDER_MS. Once patched, the render puts the map on the cluster
@@ -64,7 +65,8 @@ const AA_CARD_NAME = 'wocAaCard';
 const GUIDE_NAME = 'wocGuide';
 const GUIDE_TEXT = 'Hide BMW turn box';
 const GUIDE_UNAVAILABLE = 'Hide BMW turn box — unavailable';
-const TARGET_NAME = 'wocTarget';
+/* The place checkboxes and the place each one turns on or off. */
+const PLACES = [['wocOnCluster', 'cluster'], ['wocOnHud', 'hud']];
 /* The HUD buttons and the step each one makes (waze_cluster_control.js stepRect). */
 const HUD_BUTTONS = [['wocHudSmaller', 'smaller'], ['wocHudLarger', 'larger'], ['wocHudUp', 'up'], ['wocHudDown', 'down']];
 const CAPTURE_NAME = 'wocCapture';
@@ -182,8 +184,8 @@ class WazeClusterApp extends OnlineApp {
             return Promise.reject(new Error(`uiDescription has no ${STATE_NAME} or ${LOGS_STATE}`));
         }
         const names = [STATUS_NAME, SETUP_NAME, ENABLE_NAME, DISABLE_NAME, AA_STATUS_NAME, AA_ENABLE_NAME, AA_DISABLE_NAME,
-            AA_ZOOM_OUT_NAME, AA_ZOOM_IN_NAME, AA_CARD_NAME, RESTART_NAME, GUIDE_NAME, TARGET_NAME, CAPTURE_NAME, CAPTURE_STATUS,
-            LOGS_NAME, LOGS_SAVE, LOGS_STATUS, LOGS_QR, LOGS_URL].concat(HUD_BUTTONS.map(([name]) => name), ROW_NAMES, LOGS_ROW_NAMES);
+            AA_ZOOM_OUT_NAME, AA_ZOOM_IN_NAME, AA_CARD_NAME, RESTART_NAME, GUIDE_NAME, CAPTURE_NAME, CAPTURE_STATUS,
+            LOGS_NAME, LOGS_SAVE, LOGS_STATUS, LOGS_QR, LOGS_URL].concat(PLACES.map(([name]) => name), HUD_BUTTONS.map(([name]) => name), ROW_NAMES, LOGS_ROW_NAMES);
         names.forEach((name) => { this._components[name] = rhmi.getByName(name); });
         const missing = names.filter((name) => !this._components[name]);
         if (missing.length) {
@@ -203,7 +205,13 @@ class WazeClusterApp extends OnlineApp {
             delete this._written[`selected:${GUIDE_NAME}`];
             this._control.toggleGuidance();
         });
-        this._bind(TARGET_NAME, () => this._control.toggleTarget());
+        PLACES.forEach(([name, place]) => this._bind(name, () => {
+            /* the HMI ticks or unticks the box itself; the render's answer
+             * decides what it shows */
+            delete this._written[`selected:${name}`];
+            this._control.togglePlace(place);
+            this._render();
+        }));
         HUD_BUTTONS.forEach(([name, step]) => this._bind(name, () => this._control.stepHud(step)));
         this._bind(CAPTURE_NAME, () => this._control.capture());
         this._bind(LOGS_NAME, () => Promise.resolve(rhmi.openState(LOGS_STATE))
@@ -462,10 +470,13 @@ class WazeClusterApp extends OnlineApp {
         if (hide !== null) {
             this._setSelected(GUIDE_NAME, hide && !unavailable);
         }
-        const target = this._control.target();
-        this._setVisibleComp(TARGET_NAME, target !== null);
-        this._setEnabled(TARGET_NAME, target !== null);
-        this._write(TARGET_NAME, target === 'hud' ? 'Show on cluster' : 'Show on HUD');
+        const places = this._control.places();
+        PLACES.forEach(([name, place]) => {
+            this._setVisibleComp(name, places !== null);
+            if (places) {
+                this._setSelected(name, places[place]);
+            }
+        });
         const onHud = this._control.hudRect() !== null;
         HUD_BUTTONS.forEach(([name, step]) => {
             this._setVisibleComp(name, onHud);

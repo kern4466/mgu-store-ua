@@ -7,7 +7,11 @@
  * target the map goes to: `map` (the native central-map slot 0x100, whose
  * 1088x480 scene the map fills) unless a control start chose another; on a
  * whole-panel target it is the centred map area (map_geometry.h), on the
- * HUD the HUD's rect (hud_rect), else the centred map area too.
+ * HUD the HUD's rect (hud_rect), else the centred map area too. With
+ * also_hud, a map on the cluster (map or panel) is drawn on the HUD too: a
+ * second video layer at the HUD's rect, given a copy of every frame and
+ * shown and hidden with the first. The status follows the first; the
+ * second's states are logged.
  * The renderer draws every frame the way waze-on-cluster always has (one
  * persistent R8 atlas written in changed tiles, packed fast motion, the
  * frame clock, newest frame only) within the budget all its clients share,
@@ -48,6 +52,7 @@ struct FeedConfig {
     cr::VideoOptions video;   /* w and h are the decoded frame's */
     MapRect rect;             /* where in the map or panel target; unset: the map area */
     MapRect hud_rect;         /* where in the hud target; unset: the map area */
+    bool also_hud = false;    /* a map on the cluster is on the HUD too */
     bool guide_hold = true;   /* the layer's guide_hold: BMW's turn box hidden while the map shows */
 };
 
@@ -57,6 +62,8 @@ struct FeedStatus {
     std::string state = "idle";   /* idle, starting, showing, frozen, error */
     std::string target;
     std::string rect;             /* the layer's rect in its target, "X,Y,W,H"; empty: no layer */
+    bool also_hud = false;
+    std::string hud_rect;         /* the map's rect on the HUD, either layer's; empty: not on the HUD */
     std::string page;
     std::string reason;
     bool stream_reason = false;   /* the reason is the stream's (MapFeed::status) */
@@ -97,6 +104,8 @@ public:
     bool set_target(const std::string &name);
     /* Where on the HUD the map goes from now on; unset: the map area. */
     void set_hud_rect(const MapRect &rect);
+    /* Whether a map on the cluster is on the HUD too, from now on. */
+    void set_also_hud(bool on);
     /* The layer's guide_hold from now on. */
     void set_guide_hold(bool hold);
 
@@ -125,12 +134,20 @@ public:
 
 private:
     void make_layer();
+    void make_mirror();
+    /* Drops the HUD's copy and makes it again when it is wanted. */
+    void remake_mirror();
+    /* A video layer on target at the map area or rect; *lo its options. */
+    uint32_t make_video(const std::string &target, const MapRect &rect, bool guide_hold, cr::LayerOptions *lo);
     void count_second(int64_t now_ms);
 
     FeedConfig cfg_;
     cr::Client client_;
     uint32_t layer_ = 0;
     cr::LayerOptions lo_;   /* the layer's options as last sent */
+    uint32_t mirror_ = 0;   /* the HUD's copy of a map on the cluster (also_hud) */
+    cr::LayerOptions mirror_lo_;
+    std::string mirror_state_, mirror_reason_;
     bool live_ = false, frozen_ = false;
     Picture picture_ = Picture::None;
     const char *stream_line_ = nullptr;   /* the stream's state as last logged */

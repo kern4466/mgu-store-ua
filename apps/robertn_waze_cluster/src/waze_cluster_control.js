@@ -12,12 +12,15 @@
  *
  *   Render control socket (RENDER_PATH)
  *     app  -> tool  {"cmd":"guide","hide":0|1}  BMW's turn box hidden while the map shows, or not
- *                   {"cmd":"start","target":"map"|"hud"[,"rect":"X,Y,W,H"]}  where the map goes,
- *                    and with rect where on the HUD; the tool keeps both
+ *                   {"cmd":"start","target":"map"|"hud"[,"rect":"X,Y,W,H"][,"hud":0|1]}  where the
+ *                    map goes, with rect where on the HUD, with hud whether a map on the
+ *                    cluster is on the HUD too; the tool keeps all three
  *     tool -> app   {"ev":"status","state":"idle"|"starting"|"showing"|"frozen"|"error",
  *                    "target","page","reason","hide_bmw_guidance","guide_disabled"}
  *                   (target: map, panel or hud, the cluster renderer's target the map is on;
- *                    rect: the map's "X,Y,W,H" in it, empty without a layer; idle's reason: why a live stream shows no map; hide_bmw_guidance 0|1,
+ *                    rect: the map's "X,Y,W,H" in it, empty without a layer; also_hud 0|1:
+ *                    a map on the cluster on the HUD too; hud_rect: the map's rect on
+ *                    the HUD, empty while it is not there; idle's reason: why a live stream shows no map; hide_bmw_guidance 0|1,
  *                    absent from a tool before the switch; guide_disabled 1: the cluster
  *                    renderer keeps BMW's turn box shown whatever the switch)
  *                   {"ev":"log","line"}      the backlog on connect, then each new line
@@ -336,19 +339,38 @@ class WazeClusterControl extends EventEmitter {
         return rs && typeof rs.target === 'string' ? (rs.target === 'sail' ? 'map' : rs.target) : null;
     }
 
-    /* Moves the map between the cluster's map area and the HUD; the render's
-     * next status shows it. Nothing while the target is not known. */
-    toggleTarget() {
+    /* Where the map is, {cluster, hud}, as the render last said: on the
+     * cluster while its target is not the HUD, on the HUD while it is or a
+     * map on the cluster is there too. null while not known, or from a
+     * tool that cannot draw on both. */
+    places() {
         const t = this.target();
-        if (t !== null) {
-            this.render.send({ cmd: 'start', target: t === 'hud' ? 'map' : 'hud' });
+        const rs = this.renderStatus;
+        if (t === null || (rs.also_hud !== 0 && rs.also_hud !== 1)) {
+            return null;
         }
+        return { cluster: t !== 'hud', hud: t === 'hud' || rs.also_hud === 1 };
+    }
+
+    /* Turns the map on the cluster or on the HUD ('cluster' | 'hud') on or
+     * off; the render's next status shows it. Nothing while not known, nor
+     * a press that would leave the map nowhere. */
+    togglePlace(place) {
+        const p = this.places();
+        if (!p) {
+            return;
+        }
+        const next = Object.assign({}, p, { [place]: !p[place] });
+        if (!next.cluster && !next.hud) {
+            return;
+        }
+        this.render.send(next.cluster ? { cmd: 'start', target: 'map', hud: next.hud ? 1 : 0 } : { cmd: 'start', target: 'hud' });
     }
 
     /* The map's rect on the HUD, {x, y, w, h}, while it is there and the
      * render reports it; null otherwise. */
     hudRect() {
-        return this.target() === 'hud' ? parseRect(this.renderStatus.rect) : null;
+        return this.target() !== null ? parseRect(this.renderStatus.hud_rect) : null;
     }
 
     /* Whether a HUD button ('smaller', 'larger', 'up', 'down') changes the rect. */
@@ -362,7 +384,7 @@ class WazeClusterControl extends EventEmitter {
         const r = this.hudRect();
         const next = r && stepRect(r, step);
         if (next) {
-            this.render.send({ cmd: 'start', target: 'hud', rect: `${next.x},${next.y},${next.w},${next.h}` });
+            this.render.send({ cmd: 'start', target: this.target(), rect: `${next.x},${next.y},${next.w},${next.h}` });
         }
     }
 

@@ -77,7 +77,8 @@ void on_signal(int) { g_stop = 1; }
 std::string status_line(const FeedStatus &s)
 {
     return "{\"ev\":\"status\",\"state\":" + json_escape(s.state) + ",\"target\":" + json_escape(s.target) +
-           ",\"rect\":" + json_escape(s.rect) +
+           ",\"rect\":" + json_escape(s.rect) + ",\"also_hud\":" + (s.also_hud ? "1" : "0") +
+           ",\"hud_rect\":" + json_escape(s.hud_rect) +
            ",\"page\":" + json_escape(s.page) + ",\"reason\":" + json_escape(s.reason) +
            ",\"upload_cap_kb_per_s\":" + std::to_string(s.upload_cap_kb) +
            ",\"upload_reason\":" + json_escape(s.upload_reason) +
@@ -90,8 +91,9 @@ public:
     Server(MapFeed *feed, GuideSetting *guide, PlaceSetting *place) : feed_(feed), guide_(guide), place_(place) {}
     void set_control(Control *c) { control_ = c; }
 
-    /* start picks the target the map goes to (`run`), and with a rect
-     * where on the HUD; both are kept (place_setting.h). The map itself
+    /* start picks the target the map goes to (`run`), with a rect where on
+     * the HUD and with hud whether a map on the cluster is on the HUD too;
+     * all are kept (place_setting.h). The map itself
      * comes and goes with the stream. guide is the app's switch for BMW's
      * turn box (guide_setting.h). */
     void on_command(const std::map<std::string, std::string> &msg) override
@@ -100,14 +102,18 @@ public:
         auto it = msg.find("target");
         auto hide = msg.find("hide");
         auto rect = msg.find("rect");
+        auto also = msg.find("hud");
         if (cmd == "start" && it != msg.end()) {
             const std::string r = rect != msg.end() ? rect->second : std::string();
-            log_info("start %s%s%s", it->second.c_str(), r.empty() ? "" : " at ", r.c_str());
-            if (!place_->set(it->second, r)) {
-                log_warn("start: %s%s%s is not a target and an X,Y,W,H rect; nothing changed", it->second.c_str(),
-                         r.empty() ? "" : " at ", r.c_str());
+            const std::string a = also != msg.end() ? also->second : std::string();
+            log_info("start %s%s%s%s%s", it->second.c_str(), r.empty() ? "" : " at ", r.c_str(),
+                     a.empty() ? "" : ", hud ", a.c_str());
+            if (!place_->set(it->second, r, a)) {
+                log_warn("start: %s%s%s%s%s is not a target, an X,Y,W,H rect and hud 0 or 1; nothing changed",
+                         it->second.c_str(), r.empty() ? "" : " at ", r.c_str(), a.empty() ? "" : ", hud ", a.c_str());
                 return;
             }
+            feed_->set_also_hud(place_->also_hud());
             feed_->set_hud_rect(place_->hud_rect());
             if (!feed_->set_target(it->second))
                 log_warn("start: the cluster renderer has no target %s", it->second.c_str());
@@ -238,9 +244,10 @@ int serve(const Config &cfg)
 
     GuideSetting guide(cfg.str("hide_bmw_guidance"), cfg.str("state_file"));
     fc.guide_hold = guide.hide();
-    PlaceSetting place(cfg.str("target"), cfg.str("hud_rect"), cfg.str("place_file"));
+    PlaceSetting place(cfg.str("target"), cfg.str("hud_rect"), cfg.str("also_hud"), cfg.str("place_file"));
     fc.target = place.target() == "sail" ? "map" : place.target();
     fc.hud_rect = place.hud_rect();
+    fc.also_hud = place.also_hud();
 
     std::string err;
     VideoProducer producer(vc);
@@ -464,6 +471,7 @@ void define_keys(Config *cfg)
     cfg->define("tex_level_bits", "2");
     cfg->define("target", "map");
     cfg->define("hud_rect", "214,140,372,164");
+    cfg->define("also_hud", "0");
     cfg->define("place_file", "/var/opt/waze-on-cluster/state/waze-on-cluster.place.conf");
     cfg->define("hide_bmw_guidance", "1");
     cfg->define("state_file", "/var/opt/waze-on-cluster/state/waze-on-cluster.state.conf");

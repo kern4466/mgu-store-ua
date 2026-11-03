@@ -292,8 +292,8 @@
           ]
         },
         "36": {
-          "type": "button",
-          "name": "wocTarget",
+          "type": "checkBox",
+          "name": "wocOnCluster",
           "properties": {
             "Visible": {
               "value": 0,
@@ -307,8 +307,38 @@
           "rows": [
             {
               "Text": {
-                "value": "Show on HUD",
+                "value": "Map on cluster",
                 "type": "Text"
+              },
+              "eParam_RowSelected": {
+                "value": true,
+                "type": "Bool"
+              }
+            }
+          ]
+        },
+        "40": {
+          "type": "checkBox",
+          "name": "wocOnHud",
+          "properties": {
+            "Visible": {
+              "value": 0,
+              "type": "UInt"
+            },
+            "Focusable": {
+              "value": 3,
+              "type": "UInt"
+            }
+          },
+          "rows": [
+            {
+              "Text": {
+                "value": "Map on HUD",
+                "type": "Text"
+              },
+              "eParam_RowSelected": {
+                "value": false,
+                "type": "Bool"
               }
             }
           ]

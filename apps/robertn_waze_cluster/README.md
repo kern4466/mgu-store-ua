@@ -8,7 +8,7 @@ shell is needed.
 Install it from the catalog of
 [idrive-apps](https://github.com/robertnisipeanu/idrive-apps)
 through the [mgu Store](https://github.com/robertnisipeanu/mgu-store). It requires
-waze-on-cluster 0.8.1, which brings the cluster renderer and writes the
+waze-on-cluster 0.8.2, which brings the cluster renderer and writes the
 CarPlay patch, and the Android Auto patch where the car supports it, as it
 installs; one head-unit start activates them. After that
 the map is on the cluster whenever CarPlay streams it, whether or not this
@@ -46,7 +46,7 @@ One `LT_State_Wide` page:
 | Hide turn card / Show turn card | crops Google Maps' turn card off the map, or shows it; shown while patched |
 | Restart head unit | a normal system reboot; shown only while a written change, CarPlay's or Android Auto's, waits for the next head-unit start |
 | Hide BMW turn box | a checkbox: ticked, BMW's turn-by-turn box on the cluster stays hidden while the map shows (the default); unticked, it shows. Shown once the map service reports the setting; a press changes it at once and the service keeps it. `Hide BMW turn box — unavailable`, greyed and unticked, while the cluster renderer keeps the box shown |
-| Show on HUD / Show on cluster | moves the map to the head-up display (the cluster renderer's `hud` target) or back to the cluster's map area; shown once the map service reports where the map is. The map service keeps the choice |
+| Map on cluster / Map on HUD | two checkboxes: the map on the cluster's map area, on the head-up display (the cluster renderer's `hud` target), or on both; shown once the map service reports where the map is. Unticking the one left ticked does nothing. The map service keeps the choice |
 | HUD: smaller / larger / up / down | while the map is on the HUD: 32 pixels narrower or wider at its shape, keeping its top and centre, or 8 pixels up or down, inside the HUD's 800x480; the map service keeps the place. Greyed when a press would change nothing |
 | Capture logs (5 min) / Stop capture | a bounded DLT capture for diagnostics; start it, then reconnect CarPlay |
 | Logs | opens the Logs page |
@@ -83,9 +83,10 @@ when it closes them.
 
 - **Render** `/dev/shm/waze-on-cluster/ctl.sock`. The app sends
   `{"cmd":"guide","hide":0|1}` (Hide BMW turn box) and
-  `{"cmd":"start","target":"map"|"hud"}` (Show on cluster, Show on HUD) and
-  `{"cmd":"start","target":"hud","rect":"X,Y,W,H"}` (the HUD buttons). The tool sends
-  `{"ev":"status","state","target","rect","page","reason","upload_cap_kb_per_s","upload_reason","hide_bmw_guidance","guide_disabled"}`
+  `{"cmd":"start","target":"map","hud":0|1}` (Map on cluster ticked, Map on HUD
+  ticked or not), `{"cmd":"start","target":"hud"}` (Map on HUD only) and
+  `{"cmd":"start","target":<the current one>,"rect":"X,Y,W,H"}` (the HUD buttons). The tool sends
+  `{"ev":"status","state","target","rect","also_hud","hud_rect","page","reason","upload_cap_kb_per_s","upload_reason","hide_bmw_guidance","guide_disabled"}`
   (`state` idle, starting, showing, frozen or error; `hide_bmw_guidance` 0
   or 1; `guide_disabled` 1 while the cluster renderer keeps the box shown),
   `{"ev":"log","line"}`.
@@ -112,8 +113,8 @@ A patch with another sink, panel, size (not `1088x480`) or safe area (not
 ```sh
 node tools/test_control.js           # the socket client against fake sockets
 node tools/test_page.js              # the page against a fake SDK and HMI
-node tools/build.js                  # robertn_waze_cluster@0.5.2.src.tgz
-node tools/build.js --sdk <donor>    # also robertn_waze_cluster@0.5.2.tgz
+node tools/build.js                  # robertn_waze_cluster@0.5.3.src.tgz
+node tools/build.js --sdk <donor>    # also robertn_waze_cluster@0.5.3.tgz
 ```
 
 The app ships as a source package (`mgu-app.json`; `"build": "unit"` in the
@@ -134,7 +135,7 @@ Enter starts or stops a fake CarPlay stream.
 | `src/logs_control.js` | the logs socket client |
 | `src/qr.js`, `src/qrcodegen.js` | the QR code PNG; Project Nayuki's generator (MIT, `LICENSE-qrcodegen.txt`) |
 | `tools/` | build, fakes, tests, icon |
-| `robertn_waze_cluster@0.5.2/` | the package tree (manifest, RHMI UI, config) |
+| `robertn_waze_cluster@0.5.3/` | the package tree (manifest, RHMI UI, config) |
 
 ## License
 

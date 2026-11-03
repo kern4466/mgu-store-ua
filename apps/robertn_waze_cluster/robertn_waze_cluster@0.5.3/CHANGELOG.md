@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.3
+
+Map on cluster and Map on HUD: two checkboxes in place of Show on HUD /
+Show on cluster, so the map can be on the cluster and the head-up display at
+once. The map service keeps the choice; the one left ticked cannot be
+unticked. The HUD buttons show whenever the map is on the HUD. Requires
+waze-on-cluster 0.8.2.
+
 ## 0.5.2
 
 HUD: smaller, larger, up and down: buttons on the main page while the map

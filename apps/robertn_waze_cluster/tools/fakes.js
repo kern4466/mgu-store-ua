@@ -13,8 +13,8 @@
  * then showing the "Waze map" page at 30 updates/s; stream(false) -> idle. The map
  * stays when the connection closes. guide -> the status with the new
  * hide_bmw_guidance (none with `hide` null, as a tool before the switch);
- * start -> the status with the new target (and HUD rect), which the stream
- * keeps.
+ * start -> the status with the new target (and HUD rect, and whether a map
+ * on the cluster is on the HUD too), which the stream keeps.
  *
  * FakePatch speaks the patch daemon protocol: on connect the log backlog and
  * the current state; apply -> busy, then patched with the asked panel;
@@ -115,6 +115,7 @@ class FakeRender extends LineServer {
         this.state = 'idle';
         this.target = null;
         this.hudRect = '214,140,372,164';   /* the tool's shipped hud_rect */
+        this.alsoHud = 0;
         this.page = null;
         this.reason = null;
         this.hide = 1;
@@ -138,8 +139,10 @@ class FakeRender extends LineServer {
     }
 
     _status() {
+        const onHud = this.target === 'hud' || (this.target !== null && this.alsoHud === 1);
         const s = { ev: 'status', state: this.state, target: this.target, page: this.page, reason: this.reason,
-            rect: this.target === 'hud' ? this.hudRect : this.target ? '0,0,1088,480' : '' };
+            rect: this.target === 'hud' ? this.hudRect : this.target ? '0,0,1088,480' : '',
+            also_hud: this.alsoHud, hud_rect: onHud ? this.hudRect : '' };
         if (this.hide !== null) {
             s.hide_bmw_guidance = this.hide;
             s.guide_disabled = this.guideDisabled;
@@ -174,6 +177,9 @@ class FakeRender extends LineServer {
         } else if (msg.cmd === 'start' && ['sail', 'map', 'panel', 'hud'].includes(msg.target)) {
             if (typeof msg.rect === 'string') {
                 this.hudRect = msg.rect;
+            }
+            if (msg.hud === 0 || msg.hud === 1) {
+                this.alsoHud = msg.hud;
             }
             this._set(this.state, msg.target === 'sail' ? 'map' : msg.target, this.page, this.reason);
         }

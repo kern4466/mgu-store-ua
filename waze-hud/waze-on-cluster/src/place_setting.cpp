@@ -14,7 +14,7 @@ namespace woc {
 
 namespace {
 
-const char kTarget[] = "target", kHudRect[] = "hud_rect";
+const char kTarget[] = "target", kHudRect[] = "hud_rect", kAlsoHud[] = "also_hud";
 
 /* The value of `key = value` in the file's lines; found false without it. */
 std::string value_of(const std::string &text, const char *key, bool *found)
@@ -44,11 +44,14 @@ bool known_target(const std::string &t)
 
 }  // namespace
 
-PlaceSetting::PlaceSetting(const std::string &target, const std::string &hud_rect, const std::string &path)
-    : path_(path), target_(target)
+PlaceSetting::PlaceSetting(const std::string &target, const std::string &hud_rect, const std::string &also_hud,
+                           const std::string &path)
+    : path_(path), target_(target), also_hud_(also_hud == "1")
 {
     if (const char *why = parse_map_rect(hud_rect, &hud_rect_))
         log_warn("hud_rect = %s is ignored: %s; the map area instead", hud_rect.c_str(), why);
+    if (also_hud != "0" && also_hud != "1")
+        log_warn("also_hud = %s is not 0 or 1; the map is on the HUD only when it goes there", also_hud.c_str());
     if (access(path_.c_str(), F_OK) != 0)
         return;
     std::ifstream f(path_);
@@ -69,15 +72,23 @@ PlaceSetting::PlaceSetting(const std::string &target, const std::string &hud_rec
         hud_rect_ = saved;
     else if (found)
         log_warn("%s: hud_rect = %s does not parse; the settings' instead", path_.c_str(), r.c_str());
+    const std::string a = value_of(text, kAlsoHud, &found);
+    if (found && (a == "0" || a == "1"))
+        also_hud_ = a == "1";
+    else if (found)
+        log_warn("%s: also_hud = %s is not 0 or 1; the settings' instead", path_.c_str(), a.c_str());
 }
 
-bool PlaceSetting::set(const std::string &target, const std::string &rect)
+bool PlaceSetting::set(const std::string &target, const std::string &rect, const std::string &also_hud)
 {
     MapRect r = hud_rect_;
-    if (!known_target(target) || (!rect.empty() && parse_map_rect(rect, &r)))
+    if (!known_target(target) || (!rect.empty() && parse_map_rect(rect, &r)) ||
+        (!also_hud.empty() && also_hud != "0" && also_hud != "1"))
         return false;
     target_ = target;
     hud_rect_ = r;
+    if (!also_hud.empty())
+        also_hud_ = also_hud == "1";
     save();
     return true;
 }
@@ -91,7 +102,8 @@ std::string PlaceSetting::format(const MapRect &r)
 
 void PlaceSetting::save() const
 {
-    const std::string text = std::string(kTarget) + " = " + target_ + "\n" + kHudRect + " = " + format(hud_rect_) + "\n",
+    const std::string text = std::string(kTarget) + " = " + target_ + "\n" + kHudRect + " = " + format(hud_rect_) +
+                                 "\n" + kAlsoHud + " = " + (also_hud_ ? "1" : "0") + "\n",
                       tmp = path_ + ".tmp";
     const int fd = open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
     const bool whole = fd >= 0 && write(fd, text.data(), text.size()) == (ssize_t)text.size() && fsync(fd) == 0;
