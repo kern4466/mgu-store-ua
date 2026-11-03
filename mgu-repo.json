@@ -1,6 +1,8 @@
 {
   "schema": 1,
   "components": [
-    { "id": "robertn_store", "kind": "app", "path": "apps/robertn_store", "build": "unit" }
+    { "id": "robertn_store", "kind": "app", "path": "apps/robertn_store", "build": "unit" },
+    { "id": "robertn_waze_cluster", "kind": "app", "path": "apps/robertn_waze_cluster", "build": "unit",
+      "requires": { "waze-on-cluster": "0.8.0" }, "uninstallable": true, "mguHmi": ["ID7"] }
   ]
 }

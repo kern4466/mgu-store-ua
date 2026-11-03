@@ -68,6 +68,26 @@ deploy/hu rollback mgu-uplink --yes
 выпустит свои версии с этими же номерами, голова сочтёт их уже
 установленными и не поставит. Обновление придёт только со следующей версии.
 
+## Waze в HUD (эксперимент, iDrive 7)
+
+[`apps/robertn_waze_cluster`](apps/robertn_waze_cluster) — приложение
+Waze on cluster из [idrive-apps](https://github.com/robertnisipeanu/idrive-apps)
+0.5.0, версия 0.5.1 с кнопкой **Show on HUD / Show on cluster**. Кнопка
+переносит карту CarPlay из центра приборки на проекцию (цель `hud` у
+cluster-render) и обратно. Строка статуса показывает ответ рендерера, а лог на
+странице приложения — строки `render: map …`. Выбор держится до перезапуска
+головы.
+
+Работает ли проекция, пока не проверено: на машине ещё никто не выводил свою
+картинку в HUD.
+
+Установка, когда Waze on cluster уже стоит из idrive-apps:
+
+1. Store → удалить приложение **Waze on cluster**. Тул `waze-on-cluster`
+   не трогать.
+2. Store → Settings → **Add source** → `kern4466/mgu-store-ua`, ветка `main`.
+3. Поставить **Waze on cluster** 0.5.1 из этого источника.
+
 ---
 
 # mgu-store
