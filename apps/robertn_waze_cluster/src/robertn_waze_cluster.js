@@ -14,7 +14,8 @@
  * greyed and unticked, its label saying unavailable, while the cluster
  * renderer keeps the box shown; Show on HUD / Show on cluster, shown once
  * the render reports its target, which moves the map between the cluster's
- * map area and the HUD until the render restarts; the diagnostic capture button and its
+ * map area and the HUD, kept by the render; HUD: smaller, larger, up and
+ * down while the map is on the HUD, each a new rect for it; the diagnostic capture button and its
  * status; Logs, which opens the Logs page; and a scrolling list of both
  * tools' log lines, newest first, one per LT_Label_1Row, redrawn at most
  * every LIST_RENDER_MS. Once patched, the render puts the map on the cluster
@@ -64,6 +65,8 @@ const GUIDE_NAME = 'wocGuide';
 const GUIDE_TEXT = 'Hide BMW turn box';
 const GUIDE_UNAVAILABLE = 'Hide BMW turn box — unavailable';
 const TARGET_NAME = 'wocTarget';
+/* The HUD buttons and the step each one makes (waze_cluster_control.js stepRect). */
+const HUD_BUTTONS = [['wocHudSmaller', 'smaller'], ['wocHudLarger', 'larger'], ['wocHudUp', 'up'], ['wocHudDown', 'down']];
 const CAPTURE_NAME = 'wocCapture';
 const CAPTURE_STATUS = 'wocCaptureStatus';
 const LOGS_NAME = 'wocLogs';
@@ -180,7 +183,7 @@ class WazeClusterApp extends OnlineApp {
         }
         const names = [STATUS_NAME, SETUP_NAME, ENABLE_NAME, DISABLE_NAME, AA_STATUS_NAME, AA_ENABLE_NAME, AA_DISABLE_NAME,
             AA_ZOOM_OUT_NAME, AA_ZOOM_IN_NAME, AA_CARD_NAME, RESTART_NAME, GUIDE_NAME, TARGET_NAME, CAPTURE_NAME, CAPTURE_STATUS,
-            LOGS_NAME, LOGS_SAVE, LOGS_STATUS, LOGS_QR, LOGS_URL].concat(ROW_NAMES, LOGS_ROW_NAMES);
+            LOGS_NAME, LOGS_SAVE, LOGS_STATUS, LOGS_QR, LOGS_URL].concat(HUD_BUTTONS.map(([name]) => name), ROW_NAMES, LOGS_ROW_NAMES);
         names.forEach((name) => { this._components[name] = rhmi.getByName(name); });
         const missing = names.filter((name) => !this._components[name]);
         if (missing.length) {
@@ -201,6 +204,7 @@ class WazeClusterApp extends OnlineApp {
             this._control.toggleGuidance();
         });
         this._bind(TARGET_NAME, () => this._control.toggleTarget());
+        HUD_BUTTONS.forEach(([name, step]) => this._bind(name, () => this._control.stepHud(step)));
         this._bind(CAPTURE_NAME, () => this._control.capture());
         this._bind(LOGS_NAME, () => Promise.resolve(rhmi.openState(LOGS_STATE))
             .catch((err) => logger.warn(`openState ${LOGS_STATE} failed: ${err && err.message}`)));
@@ -462,6 +466,11 @@ class WazeClusterApp extends OnlineApp {
         this._setVisibleComp(TARGET_NAME, target !== null);
         this._setEnabled(TARGET_NAME, target !== null);
         this._write(TARGET_NAME, target === 'hud' ? 'Show on cluster' : 'Show on HUD');
+        const onHud = this._control.hudRect() !== null;
+        HUD_BUTTONS.forEach(([name, step]) => {
+            this._setVisibleComp(name, onHud);
+            this._setEnabled(name, this._control.canStepHud(step));
+        });
     }
 
     _renderLogs() {

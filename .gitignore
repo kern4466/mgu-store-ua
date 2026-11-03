@@ -13,3 +13,6 @@ release/published/
 
 # mgu-store-ua: the ready release folder is kept in git
 !ua-release/**/*.tgz
+
+# waze-hud: the tool builds here; component.json ships prebuilt/
+waze-hud/*/build/

@@ -24,14 +24,15 @@
  * while closed or with a render that has no switch, nothing sent while the
  * cluster renderer holds the box shown. The target: not known until the
  * render reports it, each toggle one start command to the other of map and
- * hud.
+ * hud. The HUD rect: each button's step kept inside the HUD at the map's
+ * shape, none past its edges, each press one start with the new rect.
  * The Logs page's client (src/logs_control.js): the socket absent before the
  * logs service runs, Save logs sending one save and the list, the address
  * and the status following the service, its errors, and closing.
  */
 const assert = require('assert');
 const fs = require('fs');
-const { WazeClusterControl, SIZE, SAFE } = require('../src/waze_cluster_control.js');
+const { WazeClusterControl, SIZE, SAFE, stepRect } = require('../src/waze_cluster_control.js');
 const { LogsControl } = require('../src/logs_control.js');
 const { FakeRender, FakePatch, FakeLogs, RENDER_PAGE, RENDER_FPS } = require('./fakes.js');
 
@@ -188,6 +189,34 @@ test('the target: not known until the render says, each toggle one start command
     render.stream(false);
     c.close();
     assert.strictEqual(c.target(), null, 'closed: not known');
+});
+
+test('the HUD rect: each button a new rect, kept inside the HUD at its shape', async (render, patch) => {
+    const r = { x: 214, y: 140, w: 372, h: 164 };
+    assert.deepStrictEqual(stepRect(r, 'smaller'), { x: 230, y: 140, w: 340, h: 150 }, 'smaller keeps the top and centre');
+    assert.deepStrictEqual(stepRect(r, 'larger'), { x: 198, y: 140, w: 404, h: 178 });
+    assert.deepStrictEqual(stepRect(r, 'up'), { x: 214, y: 132, w: 372, h: 164 });
+    assert.deepStrictEqual(stepRect(r, 'down'), { x: 214, y: 148, w: 372, h: 164 });
+    assert.strictEqual(stepRect({ x: 0, y: 0, w: 800, h: 352 }, 'larger'), null, 'full width: no larger');
+    assert.strictEqual(stepRect({ x: 0, y: 0, w: 800, h: 352 }, 'up'), null, 'at the top: no up');
+    assert.deepStrictEqual(stepRect({ x: 0, y: 128, w: 800, h: 352 }, 'down'), null, 'at the bottom: no down');
+    assert.deepStrictEqual(stepRect({ x: 336, y: 0, w: 128, h: 56 }, 'smaller'), null, 'the narrowest: no smaller');
+    assert.deepStrictEqual(stepRect({ x: 600, y: 300, w: 200, h: 88 }, 'larger'), { x: 568, y: 300, w: 232, h: 102 },
+        'grown at the HUD\'s edge: kept inside it');
+    const c = control();
+    c.open();
+    render.stream(true);
+    await until('on the cluster', () => c.target() === 'map');
+    assert.strictEqual(c.hudRect(), null, 'not on the HUD: no HUD rect');
+    assert.strictEqual(c.canStepHud('up'), false);
+    c.toggleTarget();
+    await until('on the HUD', () => c.hudRect() !== null);
+    assert.deepStrictEqual(c.hudRect(), r, 'the render\'s rect');
+    c.stepHud('down');
+    await until('down', () => c.hudRect().y === 148);
+    assert.deepStrictEqual(render.received[1], { cmd: 'start', target: 'hud', rect: '214,148,372,164' });
+    render.stream(false);
+    c.close();
 });
 
 test('the turn box held off by the cluster renderer: unavailable, nothing sent', async (render, patch) => {

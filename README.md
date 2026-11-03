@@ -68,25 +68,36 @@ deploy/hu rollback mgu-uplink --yes
 выпустит свои версии с этими же номерами, голова сочтёт их уже
 установленными и не поставит. Обновление придёт только со следующей версии.
 
-## Waze в HUD (эксперимент, iDrive 7)
+## Waze в HUD (iDrive 7)
 
 [`apps/robertn_waze_cluster`](apps/robertn_waze_cluster) — приложение
 Waze on cluster из [idrive-apps](https://github.com/robertnisipeanu/idrive-apps)
-0.5.0, версия 0.5.1 с кнопкой **Show on HUD / Show on cluster**. Кнопка
-переносит карту CarPlay из центра приборки на проекцию (цель `hud` у
-cluster-render) и обратно. Строка статуса показывает ответ рендерера, а лог на
-странице приложения — строки `render: map …`. Выбор держится до перезапуска
-головы.
+0.5.0, здесь версия 0.5.2, и
+[`waze-hud/waze-on-cluster`](waze-hud/waze-on-cluster) — его тул 0.8.0,
+здесь версия 0.8.1 (бинарник собран `make target` в `prebuilt/`).
 
-Работает ли проекция, пока не проверено: на машине ещё никто не выводил свою
-картинку в HUD.
+- **Show on HUD / Show on cluster** переносит карту CarPlay с приборки на
+  проекцию и обратно.
+- **HUD: smaller / larger / up / down** (пока карта на проекции) меняют её
+  размер и положение.
+- Тул запоминает выбор и место (`/var/opt/waze-on-cluster/state/waze-on-cluster.place.conf`),
+  после перезапуска головы карта остаётся там же.
+- По умолчанию карта стоит над строкой BMW со скоростью и знаком
+  (`hud_rect = 214,140,372,164` в `waze-on-cluster.conf`).
 
-Установка, когда Waze on cluster уже стоит из idrive-apps:
+Установка поверх Waze on cluster из idrive-apps (Store не обновляет
+компонент из чужого источника, поэтому сначала удалить):
 
-1. Store → удалить приложение **Waze on cluster**. Тул `waze-on-cluster`
-   не трогать.
-2. Store → Settings → **Add source** → `kern4466/mgu-store-ua`, ветка `main`.
-3. Поставить **Waze on cluster** 0.5.1 из этого источника.
+1. Store → удалить приложение **Waze on cluster**, затем тул **Waze on
+   cluster** (он снимает патч CarPlay) → перезапустить голову.
+2. Store → Settings → **Add source** → `kern4466/mgu-store-ua`, ветка `main`
+   (если ещё не добавлен).
+3. Поставить **Waze on cluster** 0.5.2 из этого источника: тул 0.8.1
+   поставится вместе с ним → перезапустить голову, когда Store попросит.
+
+Тул занял номер 0.8.1. Если upstream выпустит свой 0.8.1, у этой головы он
+не заменит наш: компонент обновляет только источник, из которого он
+поставлен.
 
 ---
 

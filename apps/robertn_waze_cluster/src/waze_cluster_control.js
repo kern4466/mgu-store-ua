@@ -12,10 +12,12 @@
  *
  *   Render control socket (RENDER_PATH)
  *     app  -> tool  {"cmd":"guide","hide":0|1}  BMW's turn box hidden while the map shows, or not
- *                   {"cmd":"start","target":"map"|"hud"}  where the map goes, until the tool restarts
+ *                   {"cmd":"start","target":"map"|"hud"[,"rect":"X,Y,W,H"]}  where the map goes,
+ *                    and with rect where on the HUD; the tool keeps both
  *     tool -> app   {"ev":"status","state":"idle"|"starting"|"showing"|"frozen"|"error",
  *                    "target","page","reason","hide_bmw_guidance","guide_disabled"}
- *                   (target: map, panel or hud, the cluster renderer's target the map is on; idle's reason: why a live stream shows no map; hide_bmw_guidance 0|1,
+ *                   (target: map, panel or hud, the cluster renderer's target the map is on;
+ *                    rect: the map's "X,Y,W,H" in it, empty without a layer; idle's reason: why a live stream shows no map; hide_bmw_guidance 0|1,
  *                    absent from a tool before the switch; guide_disabled 1: the cluster
  *                    renderer keeps BMW's turn box shown whatever the switch)
  *                   {"ev":"log","line"}      the backlog on connect, then each new line
@@ -78,6 +80,41 @@ const SIZE = '1088x480';
 /* The safe area Enable map writes: where the phone keeps its guidance UI,
  * inside the part of the map the gauges leave visible. */
 const SAFE = '504x368+286+72';
+/* The HUD target's size (iDrive 7), and the HUD buttons' steps in its pixels. */
+const HUD_W = 800;
+const HUD_H = 480;
+const HUD_SIZE_STEP = 32;
+const HUD_MOVE_STEP = 8;
+const HUD_MIN_W = 128;
+
+/* "X,Y,W,H" as numbers, or null. */
+function parseRect(text) {
+    const m = /^(\d+),(\d+),(\d+),(\d+)$/.exec(typeof text === 'string' ? text : '');
+    return m ? { x: +m[1], y: +m[2], w: +m[3], h: +m[4] } : null;
+}
+
+function even(n) {
+    return 2 * Math.round(n / 2);
+}
+
+/* The HUD rect one button press makes of r: smaller and larger keep its top,
+ * its horizontal centre and its shape; up and down move it. Kept inside the
+ * HUD; null when the press changes nothing. */
+function stepRect(r, step) {
+    let w = r.w;
+    let h = r.h;
+    let y = r.y;
+    if (step === 'smaller' || step === 'larger') {
+        w = Math.min(HUD_W, Math.max(HUD_MIN_W, r.w + (step === 'larger' ? HUD_SIZE_STEP : -HUD_SIZE_STEP)));
+        h = Math.min(HUD_H, even(w * r.h / r.w));
+        w = Math.min(w, even(h * r.w / r.h));
+    } else {
+        y = r.y + (step === 'down' ? HUD_MOVE_STEP : -HUD_MOVE_STEP);
+    }
+    const x = even(Math.min(HUD_W - w, Math.max(0, r.x + r.w / 2 - w / 2)));
+    y = even(Math.min(HUD_H - h, Math.max(0, y)));
+    return x === r.x && y === r.y && w === r.w && h === r.h ? null : { x, y, w, h };
+}
 
 /* One newline-delimited-JSON stream socket, reconnecting while open.
  * link: 'down' | 'up' | 'absent' (ENOENT) | 'refused' (ECONNREFUSED) | 'failed'.
@@ -305,6 +342,27 @@ class WazeClusterControl extends EventEmitter {
         const t = this.target();
         if (t !== null) {
             this.render.send({ cmd: 'start', target: t === 'hud' ? 'map' : 'hud' });
+        }
+    }
+
+    /* The map's rect on the HUD, {x, y, w, h}, while it is there and the
+     * render reports it; null otherwise. */
+    hudRect() {
+        return this.target() === 'hud' ? parseRect(this.renderStatus.rect) : null;
+    }
+
+    /* Whether a HUD button ('smaller', 'larger', 'up', 'down') changes the rect. */
+    canStepHud(step) {
+        const r = this.hudRect();
+        return !!r && stepRect(r, step) !== null;
+    }
+
+    /* One HUD button press: the map's new rect on the HUD, which the tool keeps. */
+    stepHud(step) {
+        const r = this.hudRect();
+        const next = r && stepRect(r, step);
+        if (next) {
+            this.render.send({ cmd: 'start', target: 'hud', rect: `${next.x},${next.y},${next.w},${next.h}` });
         }
     }
 
@@ -618,5 +676,5 @@ class WazeClusterControl extends EventEmitter {
 module.exports = {
     WazeClusterControl, LineSocket,
     RENDER_PATH, PATCH_PATH, PENDING_PATH, MAX_LINES,
-    SIZE, SAFE, ZOOM_STEP
+    SIZE, SAFE, ZOOM_STEP, stepRect
 };
